@@ -1,10 +1,13 @@
 import 'dart:convert';
 
+import 'package:amazonclone/common/widgets/bottom_bar.dart';
 import 'package:amazonclone/constants/error_handling.dart';
 import 'package:amazonclone/constants/global_variable.dart';
 import 'package:amazonclone/constants/utils.dart';
+import 'package:amazonclone/features/home/screens/home_screens.dart';
 import 'package:amazonclone/models/user.dart';
 import 'package:amazonclone/providers/user_provider.dart';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -48,6 +51,7 @@ class AuthService {
     }
   }
 
+  //signinusers
   void signInUser({
     required BuildContext context,
     required String email,
@@ -71,9 +75,53 @@ class AuthService {
           SharedPreferences prefs = await SharedPreferences.getInstance();
           Provider.of<UserProvider>(context, listen: false).setUser(res.body);
           await prefs.setString('x-auth-token', jsonDecode(res.body)['token']);
-          Navigator.restorablePushAndRemoveUntil(context, (context, arguments) => null, (route) => false)
+          //Navigator.restorablePushAndRemoveUntil(context, (context, arguments) => null, (route) => false)
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            BottomBar.routeName,
+            (route) => false,
+          );
         },
       );
+    } catch (e) {
+      showSnackBar(context, e.toString());
+    }
+  }
+
+  // get user data
+  void getUserData(
+    BuildContext context,
+  ) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('x-auth-token');
+
+      if (token == null) {
+        prefs.setString('x-auth-token', '');
+      }
+
+      var tokenRes = await http.post(
+        Uri.parse('$uri/tokenIsValid'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-auth-token': token!
+        },
+      );
+
+      var response = jsonDecode(tokenRes.body);
+
+      if (response == true) {
+        http.Response userRes = await http.get(
+          Uri.parse('$uri/'),
+          headers: <String, String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+            'x-auth-token': token
+          },
+        );
+
+        var userProvider = Provider.of<UserProvider>(context, listen: false);
+        userProvider.setUser(userRes.body);
+      }
     } catch (e) {
       showSnackBar(context, e.toString());
     }
